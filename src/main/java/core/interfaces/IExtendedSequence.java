@@ -4,6 +4,7 @@ import core.AbstractGameState;
 import core.actions.AbstractAction;
 import core.actions.ActionSpace;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -43,8 +44,42 @@ import java.util.List;
  *
  * After every action is taken, the ForwardModel will check the top of the stack to see if it is finished (and will
  * continue until it finds one that is not). If it is finished, it will remove it from the stack.
+ *
+ * When an action is executed with an IExtendedSequence on the stack, then generally _afterAction() will be called
+ * on the top of the stack only. There are two exceptions to this to stop an action removing itself:
+ *      - Any sequence the action itself starts (directly or via nested actions it executes) is not told about it.
+ *      - If the action puts *itself* on the stack (pattern i above), then in StandardForwardModel the sequence that
+ *        offered it is not told immediately, but only once the action completes, via afterRemovalFromQueue().
+ *
+ * WARNING: One action must not currently put two (or more) IExtendedSequences on the stack at the same time.
+ * For example, a card that makes the player place a tile (TilePlacement) and then make a choice (Choice), each of which
+ * is an IExtendedSequence, and both pushed to the stack when the card is played.
+ * The stack is then [..., Choice, TilePlacement], and when TilePlacement completes and is removed, the default
+ * afterRemovalFromQueue() passes it to Choice._afterAction() - as if it were the decision Choice was waiting for.
+ * Choice cannot tell this sibling apart from its own decision.
+ * Instead, have a single sequence that runs the steps one after another (pushing the next only when the previous is
+ * complete), or override afterRemovalFromQueue() so that completed sequences are not treated as decisions.
+ * (Terraforming Mars does the latter: see TMExtendedSequence, used with StandardForwardModelWithTurnOrder, which tells
+ * the offering sequence about every action immediately.)
  */
 public interface IExtendedSequence {
+
+    /**
+     * AbstractGameState delegates to this from getCurrentPlayer() if this Extended Sequence is currently active.
+     *
+     * @param state The current game state
+     * @return The player Id whose move it is
+     */
+    int getCurrentPlayer(AbstractGameState state);
+
+    /**
+     * If the IExtendedSequence represents a simultaneous action, then it is necessary to override
+     * the getCurrentSimultaneousPlayers method
+     * @return
+     */
+    default List<Integer> getCurrentSimultaneousPlayers(AbstractGameState state) {
+        return Collections.singletonList(getCurrentPlayer(state));
+    }
 
     /**
      * Forward Model delegates to this from computeAvailableActions() if this Extended Sequence is currently active.
@@ -53,17 +88,30 @@ public interface IExtendedSequence {
      * @return the list of possible actions for the currentPlayer
      */
     List<AbstractAction> _computeAvailableActions(AbstractGameState state);
+    /**
+     * If the IExtendedSequence represents a simultaneous action, then it is necessary instead to implement
+     * _computeAvailableActions for a specific player
+     * @param state
+     * @param activePlayer
+     * @return
+     */
+    default List<AbstractAction> _computeAvailableActions(AbstractGameState state, int activePlayer) {
+        return _computeAvailableActions(state);
+    }
+
+    /**
+     * Override this method if (and only if) you are implementing multiple action spaces for a game
+     */
     default List<AbstractAction> _computeAvailableActions(AbstractGameState state, ActionSpace actionSpace) {
         return _computeAvailableActions(state);
     }
 
     /**
-     * TurnOrder delegates to this from getCurrentPlayer() if this Extended Sequence is currently active.
-     *
-     * @param state The current game state
-     * @return The player Id whose move it is
+     * Override this method if (and only if) you are implementing multiple action spaces for a game AND we have simultaneous moves
      */
-    int getCurrentPlayer(AbstractGameState state);
+    default List<AbstractAction> _computeAvailableActions(AbstractGameState gameState, ActionSpace actionSpace, int activePlayer) {
+        return _computeAvailableActions(gameState, actionSpace);
+    }
 
     /**
      * This is called by ForwardModel whenever an action has just been taken. It enables the IExtendedSequence
@@ -92,6 +140,8 @@ public interface IExtendedSequence {
      *
      * The default behaviour is to call _afterAction() on the completed sequence if it is an AbstractAction.
      * If it is *not* an AbstractAction, then this will need to be overridden.
+     * Note that the completed sequence may not have been started by this one: see the WARNING in the class comment
+     * about putting two sequences on the stack from one action.
      * @param state
      * @param completedSequence
      */
@@ -116,4 +166,5 @@ public interface IExtendedSequence {
      * @return a copy of the Object
      */
     IExtendedSequence copy();
+
 }
