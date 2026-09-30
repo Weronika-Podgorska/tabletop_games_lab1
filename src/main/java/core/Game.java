@@ -721,7 +721,7 @@ public class Game {
      * and then run this class.
      */
     public static void main(String[] args) {
-        String gameType = Utils.getArg(args, "game", "SeaSaltPaper");
+        String gameType = Utils.getArg(args, "game", "Spades");
         boolean useGUI = Utils.getArg(args, "gui", true);
         int turnPause = Utils.getArg(args, "turnPause", 0);
         long seed = Utils.getArg(args, "seed", System.currentTimeMillis());
@@ -735,13 +735,14 @@ public class Game {
 //        players.add(new HumanConsolePlayer());
 //        players.add(new RandomPlayer());
 //        players.add(new RandomPlayer());
+//        players.add(new RandomPlayer());
         players.add(new RandomPlayer());
-        players.add(new RandomPlayer());
-//        players.add(new HumanGUIPlayer(ac));
-        players.add(new BasicMCTSPlayer());
+        players.add(new HumanGUIPlayer(ac));
+//        players.add(new BasicMCTSPlayer());
         players.add(new BasicMCTSPlayer());
 //        players.add(new BasicMCTSPlayer());
 //        players.add(new BasicMCTSPlayer());
+        players.add(new OSLAPlayer());
 
 
         /* Game parameter configuration. Set to null to ignore and use default parameters */
