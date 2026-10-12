@@ -48,7 +48,8 @@ treeRecorder*
 # game run output
 outputdir/
 Exercise3_Lab2/
-Exercise6_Lab2
+Exercise6_Lab2/
+Exercise3_Lab3/
 
 # private experiment config, not for the main codebase
 json/experiments/Lab3_Connect4.json
